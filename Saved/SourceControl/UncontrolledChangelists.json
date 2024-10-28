@@ -1,0 +1,13 @@
+{
+	"version": 1,
+	"changelists": [
+		{
+			"guid": "00000000000000000000000000000000",
+			"description": "Default Uncontrolled Changelist",
+			"files": [
+				"/Users/rumeysaay/Documents/Unreal Projects/Sword/Content/StarterContent/Audio/Explosion02.uasset",
+				"/Users/rumeysaay/Documents/Unreal Projects/Sword/Content/Maps/Minimal_Default.umap"
+			]
+		}
+	]
+}

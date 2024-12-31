@@ -9,6 +9,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Items/Item.h"
+#include "Items/Weapons/Weapon.h"
 
 // Sets default values
 AJackCharacter::AJackCharacter()
@@ -71,7 +73,11 @@ void AJackCharacter::Look(const FInputActionValue& Value)
 
 void AJackCharacter::EKeyPressed()
 {
-	
+	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
+	if(OverlappingWeapon)
+	{
+		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
+	}
 }
 
 // Called every frame

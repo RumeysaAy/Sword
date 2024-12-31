@@ -26,5 +26,6 @@ void UJackAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	{
 		GroundSpeed = UKismetMathLibrary::VSizeXY(JackCharacterMovement->Velocity);
 		IsFalling = JackCharacterMovement->IsFalling();
+		CharacterState = JackCharacter->GetCharacterState();
 	}
 }

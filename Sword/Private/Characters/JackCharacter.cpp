@@ -77,6 +77,7 @@ void AJackCharacter::EKeyPressed()
 	if(OverlappingWeapon)
 	{
 		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
+		CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
 	}
 }
 
@@ -97,9 +98,10 @@ void AJackCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &AJackCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AJackCharacter::Look);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(EKeyAction, ETriggerEvent::Triggered, this, &AJackCharacter::EKeyPressed);
 	}
 
 	// PlayerInputComponent->BindAction(FName("Jump"), IE_Pressed, this, &ACharacter::Jump);
-	PlayerInputComponent->BindAction(FName("Equip"), IE_Pressed, this, &AJackCharacter::EKeyPressed);
+	// PlayerInputComponent->BindAction(FName("Equip"), IE_Pressed, this, &AJackCharacter::EKeyPressed);
 }
 

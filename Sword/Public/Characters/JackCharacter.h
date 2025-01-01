@@ -13,6 +13,7 @@ class UInputAction;
 class USpringArmComponent;
 class UCameraComponent;
 class AItem;
+class UAnimMontage;
 
 UCLASS()
 class SWORD_API AJackCharacter : public ACharacter
@@ -45,13 +46,17 @@ protected:
 	UPROPERTY(EditAnywhere, Category=Input)
 	UInputAction* JumpAction;
 
-	UPROPERTY(EditAnywhere,Category=Input)
+	UPROPERTY(EditAnywhere, Category=Input)
 	UInputAction* EKeyAction;
+
+	UPROPERTY(EditAnywhere, Category=Input)
+	UInputAction* AttackAction;
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 
 	void EKeyPressed();
+	void Attack();
 
 private:
 	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
@@ -64,6 +69,13 @@ private:
 
 	UPROPERTY(VisibleInstanceOnly)
 	AItem* OverlappingItem;
+
+	/*
+	 * Animation Montages
+	 */
+
+	UPROPERTY(EditDefaultsOnly, Category=Montages)
+	UAnimMontage* AttackMontage;
 
 public:
 	FORCEINLINE void SetOverlappingItem(AItem* Item) { OverlappingItem = Item; }

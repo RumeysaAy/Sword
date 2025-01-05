@@ -2,7 +2,6 @@
 
 
 #include "Characters/JackCharacter.h"
-
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -12,6 +11,7 @@
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
 #include "Animation/AnimMontage.h"
+#include "Components/BoxComponent.h"
 
 // Sets default values
 AJackCharacter::AJackCharacter()
@@ -52,6 +52,9 @@ void AJackCharacter::BeginPlay()
 
 void AJackCharacter::Move(const FInputActionValue& Value)
 {
+	// hiçbir animasyon oynatılmıyorsa ilerleyebilsin
+	if (ActionState != EActionState::EAS_Unoccupied) return;
+	
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -77,18 +80,89 @@ void AJackCharacter::EKeyPressed()
 	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
 	if(OverlappingWeapon)
 	{
+		// silahı topladı - silah elinde
 		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
 		CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
+		OverlappingItem = nullptr;
+		EquippedWeapon = OverlappingWeapon;
+	}
+	else
+	{
+		// hiçbir şey yapmıyorsa ve silahı varsa 
+		if (CanDisarm())
+		{
+			// silahı sırtına koyabilir
+			PlayEquipMontage(FName("Unequip"));
+			CharacterState = ECharacterState::ECS_Unequipped;
+			ActionState = EActionState::EAS_EquippingWeapon;
+		}
+		else if (CanArm())
+		{
+			// silahı sırtından alacak
+			PlayEquipMontage(FName("Equip"));
+			CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
+			ActionState = EActionState::EAS_EquippingWeapon;
+		}
 	}
 }
 
+bool AJackCharacter::CanDisarm()
+{
+	return ActionState == EActionState::EAS_Unoccupied &&
+		CharacterState != ECharacterState::ECS_Unequipped;
+}
+
+bool AJackCharacter::CanArm()
+{
+	// hiçbir şey yapmıyorsa ve silah sırtındaysa ve silah varsa
+	return ActionState == EActionState::EAS_Unoccupied &&
+		CharacterState == ECharacterState::ECS_Unequipped && EquippedWeapon;
+}
+
+void AJackCharacter::Disarm()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->AttachMeshToSocket(GetMesh(), FName("SpineSocket"));
+	}
+}
+
+void AJackCharacter::Arm()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocket"));
+	}
+}
+
+void AJackCharacter::FinishEquipping()
+{
+	ActionState = EActionState::EAS_Unoccupied;
+}
+
 void AJackCharacter::Attack()
+{
+	// hiçbir şey yapmıyorsa ve silahı varsa attack animasyonu oynatılacak
+	if (CanAttack())
+	{
+		PlayAttackMontage();
+		ActionState = EActionState::EAS_Attacking;
+	}
+}
+
+bool AJackCharacter::CanAttack()
+{
+	return ActionState == EActionState::EAS_Unoccupied &&
+	CharacterState != ECharacterState::ECS_Unequipped;
+}
+
+void AJackCharacter::PlayAttackMontage()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && AttackMontage)
 	{
 		AnimInstance->Montage_Play(AttackMontage);
-		int32 Selection = FMath::RandRange(0,1);
+		const int32 Selection = FMath::RandRange(0,1);
 		FName SectionName = FName();
 		switch (Selection)
 		{
@@ -103,6 +177,21 @@ void AJackCharacter::Attack()
 		}
 		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
 	}
+}
+
+void AJackCharacter::PlayEquipMontage(FName SectionName)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && EquipMontage)
+	{
+		AnimInstance->Montage_Play(EquipMontage);
+		AnimInstance->Montage_JumpToSection(SectionName, EquipMontage);
+	}
+}
+
+void AJackCharacter::AttackEnd()
+{
+	ActionState = EActionState::EAS_Unoccupied;
 }
 
 // Called every frame
@@ -129,5 +218,13 @@ void AJackCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	// PlayerInputComponent->BindAction(FName("Jump"), IE_Pressed, this, &ACharacter::Jump);
 	// PlayerInputComponent->BindAction(FName("Equip"), IE_Pressed, this, &AJackCharacter::EKeyPressed);
 	// PlayerInputComponent->BindAction(FName("Attack"), IE_Pressed, this, &AJackCharacter::Attack);
+}
+
+void AJackCharacter::SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled)
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
+	}
 }
 

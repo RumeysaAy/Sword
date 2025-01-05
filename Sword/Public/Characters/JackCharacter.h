@@ -8,6 +8,7 @@
 #include "CharacterTypes.h"
 #include "JackCharacter.generated.h"
 
+class AWeapon;
 class UInputMappingContext;
 class UInputAction;
 class USpringArmComponent;
@@ -29,6 +30,9 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	UFUNCTION(BlueprintCallable)
+	void SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled);
 
 protected:
 	// Called when the game starts or when spawned
@@ -52,14 +56,43 @@ protected:
 	UPROPERTY(EditAnywhere, Category=Input)
 	UInputAction* AttackAction;
 
+	/*
+	 * Callbacks for input
+	 */ 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 
 	void EKeyPressed();
 	void Attack();
 
+	/*
+	 * Play montage functions
+	 */
+	void PlayAttackMontage();
+
+	UFUNCTION(BlueprintCallable)
+	void AttackEnd();
+
+	bool CanAttack();
+
+	void PlayEquipMontage(FName SectionName);
+	bool CanDisarm();
+	bool CanArm();
+
+	UFUNCTION(BlueprintCallable)
+	void Disarm();
+
+	UFUNCTION(BlueprintCallable)
+	void Arm();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishEquipping();
+
 private:
 	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
+
+	UPROPERTY(BlueprintReadWrite, meta=(AllowPrivateAccess = "true"))
+	EActionState ActionState = EActionState::EAS_Unoccupied;
 	
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArm;
@@ -70,12 +103,18 @@ private:
 	UPROPERTY(VisibleInstanceOnly)
 	AItem* OverlappingItem;
 
+	UPROPERTY(VisibleAnywhere, Category=Weapon)
+	AWeapon* EquippedWeapon;
+
 	/*
 	 * Animation Montages
 	 */
 
 	UPROPERTY(EditDefaultsOnly, Category=Montages)
 	UAnimMontage* AttackMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category=Montages)
+	UAnimMontage* EquipMontage;
 
 public:
 	FORCEINLINE void SetOverlappingItem(AItem* Item) { OverlappingItem = Item; }

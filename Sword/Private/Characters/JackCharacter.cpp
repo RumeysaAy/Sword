@@ -225,6 +225,7 @@ void AJackCharacter::SetWeaponCollisionEnabled(ECollisionEnabled::Type Collision
 	if (EquippedWeapon)
 	{
 		EquippedWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
+		EquippedWeapon->IgnoreActors.Empty();
 	}
 }
 

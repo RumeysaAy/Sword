@@ -34,6 +34,7 @@ protected:
 	 * Play montage functions
 	 */
 	void PlayHitReactMontage(const FName& SectionName);
+	void DirectionalHitReact(const FVector& ImpactPoint);
 
 private:
 	/*
@@ -42,5 +43,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category=Montages)
 	UAnimMontage* HitReactMontage;
 
+	UPROPERTY(EditAnywhere, Category=Sounds)
+	USoundBase* HitSound;
+
+	UPROPERTY(EditAnywhere, Category=VisualEffects)
+	UParticleSystem* HitParticles;
 	
 };

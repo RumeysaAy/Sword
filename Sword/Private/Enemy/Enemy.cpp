@@ -7,6 +7,7 @@
 #include "Animation/AnimMontage.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Sword/DebugMacro.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 // Sets default values
@@ -41,13 +42,8 @@ void AEnemy::PlayHitReactMontage(const FName& SectionName)
 	}
 }
 
-// weapon çarptığında çağrılır
-void AEnemy::GetHit(const FVector& ImpactPoint)
+void AEnemy::DirectionalHitReact(const FVector& ImpactPoint)
 {
-	// düşmanın vurulduğu noktada
-	DRAW_SPHERE_COLOR(ImpactPoint, FColor::Turquoise);
-	PlayHitReactMontage(FName("FromLeft"));
-
 	const FVector Forward = GetActorForwardVector();
 	// Lower Impact Point to the Enemy's Actor Location Z
 	const FVector ImpactLowered(ImpactPoint.X, ImpactPoint.Y, GetActorLocation().Z);
@@ -61,6 +57,35 @@ void AEnemy::GetHit(const FVector& ImpactPoint)
 	// convert from radians to degrees
 	Theta = FMath::RadiansToDegrees(Theta);
 
+	// if CrossProduct points down, Theta should be negative 
+	const FVector CrossProduct = FVector::CrossProduct(Forward, ToHit);
+	// CrossProduct, yukarıya doğru bakıyorsa sağdan vuruluyoruz demektir.
+	// aşağıya doğru bakıyorsa soldan vuruluyoruz demektir.
+	if (CrossProduct.Z < 0)
+	{
+		// Bu, vektörün aşağıya doğru baktığı ve tetanın negatif bir ile çarpılması gerektiği anlamına gelir.
+		Theta *= -1.f;
+	}
+
+	FName Section("FromBack");
+	if (Theta >= -45.f && Theta < 45.f)
+	{
+		Section = FName("FromFront");
+	}
+	else if (Theta >= -135.f && Theta < -45.f)
+	{
+		Section = FName("FromLeft");
+	}
+	else if (Theta >= 45.f && Theta < 135.f)
+	{
+		Section = FName("FromRight");
+	}
+	PlayHitReactMontage(FName(Section));
+	
+	/*
+	 *
+	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + CrossProduct.Z * 100.f, 5.f, FColor::Purple, 5.F, 5.f);
+
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(1, 5.f, FColor::Orange, FString::Printf(TEXT("Theta: %f"), Theta));
@@ -70,6 +95,34 @@ void AEnemy::GetHit(const FVector& ImpactPoint)
 	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + Forward * 60.f, 5.f, FColor::Red, 5.F, 5.f);
 	// düşmanın bulunduğu yerden vurulduğu yere giden ok
 	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + ToHit * 60.f, 5.f, FColor::Blue, 5.f, 5.f);
+	*/
+}
+
+// weapon çarptığında çağrılır
+void AEnemy::GetHit(const FVector& ImpactPoint)
+{
+	// düşmanın vurulduğu noktada
+	// DRAW_SPHERE_COLOR(ImpactPoint, FColor::Turquoise);
+
+	DirectionalHitReact(ImpactPoint);
+
+	if (HitSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+			this,
+			HitSound,
+			ImpactPoint
+		);
+	}
+
+	if (HitParticles && GetWorld())
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(
+			GetWorld(),
+			HitParticles,
+			ImpactPoint
+			);
+	}
 }
 
 // Called every frame

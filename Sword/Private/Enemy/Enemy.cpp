@@ -99,7 +99,7 @@ void AEnemy::DirectionalHitReact(const FVector& ImpactPoint)
 }
 
 // weapon çarptığında çağrılır
-void AEnemy::GetHit(const FVector& ImpactPoint)
+void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
 {
 	// düşmanın vurulduğu noktada
 	// DRAW_SPHERE_COLOR(ImpactPoint, FColor::Turquoise);

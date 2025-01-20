@@ -27,9 +27,15 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-private:
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	UGeometryCollectionComponent* GeoColl;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	class UCapsuleComponent* CapsuleComp;
 
+private:
+	UPROPERTY(EditAnywhere, Category="Breakable Properties")
+	TArray<TSubclassOf<class ATreasure>> TreasureClasses;
+
+	bool bBroken = false;
 };

@@ -7,7 +7,9 @@
 #include "Interfaces/HitInterface.h"
 #include "Enemy.generated.h"
 
+class UAttributeComponent;
 class UAnimMontage;
+class UHealthBarComponent;
 
 UCLASS()
 class SWORD_API AEnemy : public ACharacter, public IHitInterface
@@ -37,6 +39,12 @@ protected:
 	void DirectionalHitReact(const FVector& ImpactPoint);
 
 private:
+	UPROPERTY(VisibleAnywhere)
+	UAttributeComponent* Attributes;
+
+	UPROPERTY(VisibleAnywhere)
+	UHealthBarComponent* HealthBarWidget;
+	
 	/*
 	 * Animation Montages
 	 */

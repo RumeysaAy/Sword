@@ -9,6 +9,8 @@
 #include "Sword/DebugMacro.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Components/AttributeComponent.h"
+#include "HUD/HealthBarComponent.h"
 
 // Sets default values
 AEnemy::AEnemy()
@@ -22,13 +24,22 @@ AEnemy::AEnemy()
 	GetMesh()->SetGenerateOverlapEvents(true);
 	
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera,ECR_Ignore);
+
+	Attributes = CreateDefaultSubobject<UAttributeComponent>(TEXT("Attributes"));
+	
+	HealthBarWidget = CreateDefaultSubobject<UHealthBarComponent>(TEXT("HealthBar"));
+	HealthBarWidget->SetupAttachment(GetRootComponent());
 }
 
 // Called when the game starts or when spawned
 void AEnemy::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	if (HealthBarWidget)
+	{
+		HealthBarWidget->SetHealthPercent(.4f);
+	}
 }
 
 void AEnemy::PlayHitReactMontage(const FName& SectionName)

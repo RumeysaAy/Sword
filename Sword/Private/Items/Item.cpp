@@ -5,6 +5,7 @@
 #include "Sword/DebugMacro.h"
 #include "Components/SphereComponent.h"
 #include "Characters/JackCharacter.h"
+#include "NiagaraComponent.h"
 
 // Sets default values
 AItem::AItem()
@@ -17,6 +18,9 @@ AItem::AItem()
 
 	SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
 	SphereComponent->SetupAttachment(GetRootComponent());
+
+	EmbersEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Embers"));
+	EmbersEffect->SetupAttachment(GetRootComponent());
 }
 
 // Called when the game starts or when spawned

@@ -81,7 +81,7 @@ void AJackCharacter::EKeyPressed()
 	if(OverlappingWeapon)
 	{
 		// silahı topladı - silah elinde
-		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
+		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
 		CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
 		OverlappingItem = nullptr;
 		EquippedWeapon = OverlappingWeapon;

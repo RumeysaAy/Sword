@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/HitInterface.h"
+#include "Characters/CharacterTypes.h"
 #include "Enemy.generated.h"
 
 class UAttributeComponent;
@@ -29,16 +30,22 @@ public:
 	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
 
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-	
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	void Die();
+	bool InTargetRange(AActor* Target, double Radius);
 
 	/*
 	 * Play montage functions
 	 */
 	void PlayHitReactMontage(const FName& SectionName);
 	void DirectionalHitReact(const FVector& ImpactPoint);
+
+	UPROPERTY(BlueprintReadOnly)
+	EDeathPose DeathPose = EDeathPose::EDP_Alive;
 
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -53,10 +60,35 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category=Montages)
 	UAnimMontage* HitReactMontage;
 
+	UPROPERTY(EditDefaultsOnly, Category=Montages)
+	UAnimMontage* DeathMontage;
+
 	UPROPERTY(EditAnywhere, Category=Sounds)
 	USoundBase* HitSound;
 
 	UPROPERTY(EditAnywhere, Category=VisualEffects)
 	UParticleSystem* HitParticles;
-	
+
+	UPROPERTY()
+	AActor* CombatTarget;
+
+	UPROPERTY(EditAnywhere)
+	double CombatRadius = 500.f;
+
+	/*
+	* Navigation
+	*/
+
+	UPROPERTY()
+	class AAIController* EnemyController;
+
+	// Current patrol target
+	UPROPERTY(EditInstanceOnly, Category="AI Navigation")
+	AActor* PatrolTarget;
+
+	UPROPERTY(EditInstanceOnly, Category="AI Navigation")
+	TArray<AActor*> PatrolTargets;
+
+	UPROPERTY(EditAnywhere)
+	double PatrolRadius = 200.f;
 };

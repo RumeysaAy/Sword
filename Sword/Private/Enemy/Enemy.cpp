@@ -10,7 +10,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Components/AttributeComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "HUD/HealthBarComponent.h"
+#include "AIController.h"
+#include "Navigation/PathFollowingComponent.h"
 
 // Sets default values
 AEnemy::AEnemy()
@@ -29,12 +32,95 @@ AEnemy::AEnemy()
 	
 	HealthBarWidget = CreateDefaultSubobject<UHealthBarComponent>(TEXT("HealthBar"));
 	HealthBarWidget->SetupAttachment(GetRootComponent());
+
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
 }
 
 // Called when the game starts or when spawned
 void AEnemy::BeginPlay()
 {
 	Super::BeginPlay();
+	if(HealthBarWidget) HealthBarWidget->SetVisibility(false);
+
+	EnemyController = Cast<AAIController>(GetController());
+	if (EnemyController && PatrolTarget)
+	{
+		FAIMoveRequest MoveRequest;
+		MoveRequest.SetGoalActor(PatrolTarget);
+		MoveRequest.SetAcceptanceRadius(15.f);
+		
+		FNavPathSharedPtr NavPath;
+		
+		EnemyController->MoveTo(MoveRequest, &NavPath);
+
+		TArray<FNavPathPoint> &PathPoints = NavPath->GetPathPoints();
+
+		// hedefe gitmek için geçtiği noktalar
+		for (auto& Point : PathPoints)
+		{
+			const FVector& Location = Point.Location;
+			DrawDebugSphere(GetWorld(), Location, 12.f, 12, FColor::Green, false, 10.f);
+		}
+	}
+}
+
+void AEnemy::Die()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && DeathMontage)
+	{
+		AnimInstance->Montage_Play(DeathMontage);
+
+		const int32 Selection = FMath::RandRange(0, 5);
+		FName SectionName = FName();
+		switch (Selection)
+		{
+		case 0:
+			SectionName = FName("Death1");
+			DeathPose = EDeathPose::EDP_Death1;
+			break;
+		case 1:
+			SectionName = FName("Death2");
+			DeathPose = EDeathPose::EDP_Death2;
+			break;
+		case 2:
+			SectionName = FName("Death3");
+			DeathPose = EDeathPose::EDP_Death3;
+			break;
+		case 3:
+			SectionName = FName("Death4");
+			DeathPose = EDeathPose::EDP_Death4;
+			break;
+		case 4:
+			SectionName = FName("Death5");
+			DeathPose = EDeathPose::EDP_Death5;
+			break;
+		case 5:
+			SectionName = FName("Death6");
+			DeathPose = EDeathPose::EDP_Death6;
+			break;
+		default:
+			break;
+		}
+		
+		AnimInstance->Montage_JumpToSection(SectionName, DeathMontage);
+	}
+
+	
+	if (HealthBarWidget) HealthBarWidget->SetVisibility(false);
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SetLifeSpan(5.f);
+}
+
+bool AEnemy::InTargetRange(AActor* Target, double Radius)
+{
+	const double DistanceToTarget = (Target->GetActorLocation() - GetActorLocation()).Size();
+	DRAW_SPHERE_SingleFrame(GetActorLocation());
+	DRAW_SPHERE_SingleFrame(Target->GetActorLocation());
+	return Radius >= DistanceToTarget;
 }
 
 void AEnemy::PlayHitReactMontage(const FName& SectionName)
@@ -110,15 +196,24 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
 	// düşmanın vurulduğu noktada
 	// DRAW_SPHERE_COLOR(ImpactPoint, FColor::Turquoise);
 
-	DirectionalHitReact(ImpactPoint);
-
+	if (HealthBarWidget) HealthBarWidget->SetVisibility(true);
+	
+	if (Attributes && Attributes->IsAlive())
+	{
+		DirectionalHitReact(ImpactPoint);
+	}
+	else
+	{
+		Die();
+	}
+	
 	if (HitSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(
 			this,
 			HitSound,
 			ImpactPoint
-		);
+			);
 	}
 
 	if (HitParticles && GetWorld())
@@ -139,7 +234,7 @@ float AEnemy::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AC
 		Attributes->ReceiveDamage(DamageAmount);
 		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
 	}
-	
+	CombatTarget = EventInstigator->GetPawn();
 	return DamageAmount;
 }
 
@@ -148,6 +243,47 @@ void AEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (CombatTarget)
+	{
+		// oyuncu düşmandan uzaklaştığında
+		if (!InTargetRange(CombatTarget, CombatRadius))
+		{
+			CombatTarget = nullptr;
+			// düşmanın sağlık barı görünmez
+			if (HealthBarWidget) HealthBarWidget->SetVisibility(false);
+		}
+	}
+
+	if (PatrolTarget && EnemyController)
+	{
+		// PatrolTarget, PatrolRadius'un içerisindeyse
+		if (InTargetRange(PatrolTarget, PatrolRadius))
+		{
+			TArray<AActor*> ValidTargets;
+			for (AActor* Target : PatrolTargets)
+			{
+				if (Target != PatrolTarget)
+				{
+					ValidTargets.AddUnique(Target);
+				}
+			}
+			
+			// düşman rastgele bir diğer hedef noktaya gider
+			const int32 NumPatrolTargets = ValidTargets.Num();
+			if (NumPatrolTargets > 0)
+			{
+				const int32 TargetSelection = FMath::RandRange(0, NumPatrolTargets-1);
+				AActor* Target = ValidTargets[TargetSelection];
+				PatrolTarget = Target;
+				
+				FAIMoveRequest MoveRequest;
+				MoveRequest.SetGoalActor(PatrolTarget);
+				MoveRequest.SetAcceptanceRadius(15.f);
+		
+				EnemyController->MoveTo(MoveRequest);
+			}
+		}
+	}
 }
 
 // Called to bind functionality to input

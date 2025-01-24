@@ -30,6 +30,8 @@ public:
 	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
 
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	void CheckCombatTarget();
+	void CheckPatrolTarget();
 
 protected:
 	// Called when the game starts or when spawned
@@ -37,6 +39,9 @@ protected:
 
 	void Die();
 	bool InTargetRange(AActor* Target, double Radius);
+	void MoveToTarget(AActor* Target);
+	AActor* ChoosePatrolTarget();
+	
 
 	/*
 	 * Play montage functions
@@ -91,4 +96,13 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	double PatrolRadius = 200.f;
+
+	FTimerHandle PatrolTimer;
+	void PatrolTimerFinished();
+
+	UPROPERTY(EditAnywhere, Category="AI Navigation")
+	float WaitMin = 5.f;
+
+	UPROPERTY(EditAnywhere, Category="AI Navigation")
+	float WaitMax = 10.f;
 };

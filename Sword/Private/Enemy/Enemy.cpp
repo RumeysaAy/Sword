@@ -158,13 +158,17 @@ void AEnemy::PawnSeen(APawn* SeenPawn)
 	// yakalanan piyon oyuncu mu? Cast<AJackCharacter>(SeenPawn)
 	if (SeenPawn->ActorHasTag(FName("JackCharacter")))
 	{
-		EnemyState = EEnemyState::EES_Chasing;
 		// düşman oyuncuyu gördüğünde takip edecek, devriye gezmeyecek
 		GetWorldTimerManager().ClearTimer(PatrolTimer);
 		GetCharacterMovement()->MaxWalkSpeed = 300.f;
 		CombatTarget = SeenPawn;
-		MoveToTarget(CombatTarget);
-		UE_LOG(LogTemp, Warning, TEXT("Seen Pawn, now Chasing"));
+
+		if (EnemyState != EEnemyState::EES_Attacking)
+		{
+			EnemyState = EEnemyState::EES_Chasing;
+			MoveToTarget(CombatTarget);
+			UE_LOG(LogTemp, Warning, TEXT("Pawn Seen, Chase Player"));
+		}
 	}
 }
 
@@ -293,9 +297,33 @@ void AEnemy::CheckCombatTarget()
 	// oyuncu düşmandan uzaklaştığında
 	if (!InTargetRange(CombatTarget, CombatRadius))
 	{
+		// Outside combat radius, lose interest
 		CombatTarget = nullptr;
 		// düşmanın sağlık barı görünmez
 		if (HealthBarWidget) HealthBarWidget->SetVisibility(false);
+
+		// oyuncu, CombatRadius'un içerisinde değilse düşman oyuncuyu takip etmeyi bırakır
+		EnemyState = EEnemyState::EES_Patrolling;
+		GetCharacterMovement()->MaxWalkSpeed = 125.f;
+		MoveToTarget(PatrolTarget);
+		UE_LOG(LogTemp, Warning, TEXT("Lose Interest"));
+	}
+	else if (!InTargetRange(CombatTarget, AttackRadius) && EnemyState != EEnemyState::EES_Chasing)
+	{
+		// oyuncu AttackRadius'dan çıkarsa düşman oyuncuyu takip etsin
+		// Outside attack range, chase character
+		EnemyState = EEnemyState::EES_Chasing;
+		GetCharacterMovement()->MaxWalkSpeed = 300.f;
+		MoveToTarget(CombatTarget);
+		UE_LOG(LogTemp, Warning, TEXT("Chase Player"));
+	}
+	else if (InTargetRange(CombatTarget, AttackRadius) && EnemyState != EEnemyState::EES_Attacking)
+	{
+		// oyuncu AttackRadius içerisindeyse düşman saldırır
+		// Inside attack range, attack character
+		EnemyState = EEnemyState::EES_Attacking;
+		// TODO: Attack montage
+		UE_LOG(LogTemp, Warning, TEXT("Attack"));
 	}
 }
 

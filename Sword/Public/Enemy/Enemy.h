@@ -11,6 +11,7 @@
 class UAttributeComponent;
 class UAnimMontage;
 class UHealthBarComponent;
+class UPawnSensingComponent;
 
 UCLASS()
 class SWORD_API AEnemy : public ACharacter, public IHitInterface
@@ -41,7 +42,9 @@ protected:
 	bool InTargetRange(AActor* Target, double Radius);
 	void MoveToTarget(AActor* Target);
 	AActor* ChoosePatrolTarget();
-	
+
+	UFUNCTION()
+	void PawnSeen(APawn* SeenPawn);
 
 	/*
 	 * Play montage functions
@@ -53,11 +56,19 @@ protected:
 	EDeathPose DeathPose = EDeathPose::EDP_Alive;
 
 private:
+
+	/*
+	 * Components
+	 */
+	
 	UPROPERTY(VisibleAnywhere)
 	UAttributeComponent* Attributes;
 
 	UPROPERTY(VisibleAnywhere)
 	UHealthBarComponent* HealthBarWidget;
+
+	UPROPERTY(VisibleAnywhere)
+	UPawnSensingComponent* PawnSensing;
 	
 	/*
 	 * Animation Montages
@@ -105,4 +116,6 @@ private:
 
 	UPROPERTY(EditAnywhere, Category="AI Navigation")
 	float WaitMax = 10.f;
+
+	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
 };

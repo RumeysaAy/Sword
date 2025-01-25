@@ -3,17 +3,21 @@
 
 #include "Enemy/Enemy.h"
 
-#include "Components/CapsuleComponent.h"
-#include "Animation/AnimMontage.h"
-#include "Components/SkeletalMeshComponent.h"
-#include "Sword/DebugMacro.h"
-#include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetSystemLibrary.h"
-#include "Components/AttributeComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "HUD/HealthBarComponent.h"
 #include "AIController.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Perception/PawnSensingComponent.h"
+#include "Components/AttributeComponent.h"
+#include "HUD/HealthBarComponent.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
+#include "Animation/AnimMontage.h"
+#include "Characters/JackCharacter.h"
+
+#include "Sword/DebugMacro.h"
+
 
 // Sets default values
 AEnemy::AEnemy()
@@ -37,6 +41,10 @@ AEnemy::AEnemy()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
+
+	PawnSensing = CreateDefaultSubobject<UPawnSensingComponent>(TEXT("PawnSensing"));
+	PawnSensing->SightRadius = 4000.f;
+	PawnSensing->SetPeripheralVisionAngle(45.f);
 }
 
 // Called when the game starts or when spawned
@@ -47,6 +55,11 @@ void AEnemy::BeginPlay()
 
 	EnemyController = Cast<AAIController>(GetController());
 	MoveToTarget(PatrolTarget);
+
+	if(PawnSensing)
+	{
+		PawnSensing->OnSeePawn.AddDynamic(this, &AEnemy::PawnSeen);
+	}
 }
 
 void AEnemy::Die()
@@ -137,6 +150,22 @@ AActor* AEnemy::ChoosePatrolTarget()
 	}
 	
 	return nullptr;
+}
+
+void AEnemy::PawnSeen(APawn* SeenPawn)
+{
+	if (EnemyState == EEnemyState::EES_Chasing) return;
+	// yakalanan piyon oyuncu mu? Cast<AJackCharacter>(SeenPawn)
+	if (SeenPawn->ActorHasTag(FName("JackCharacter")))
+	{
+		EnemyState = EEnemyState::EES_Chasing;
+		// düşman oyuncuyu gördüğünde takip edecek, devriye gezmeyecek
+		GetWorldTimerManager().ClearTimer(PatrolTimer);
+		GetCharacterMovement()->MaxWalkSpeed = 300.f;
+		CombatTarget = SeenPawn;
+		MoveToTarget(CombatTarget);
+		UE_LOG(LogTemp, Warning, TEXT("Seen Pawn, now Chasing"));
+	}
 }
 
 void AEnemy::PlayHitReactMontage(const FName& SectionName)
@@ -289,8 +318,14 @@ void AEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	CheckCombatTarget();
-	CheckPatrolTarget();
+	if (EnemyState > EEnemyState::EES_Patrolling)
+	{
+		CheckCombatTarget(); // oyuncu
+	}
+	else
+	{
+		CheckPatrolTarget(); // devriye noktaları
+	}
 }
 
 // Called to bind functionality to input

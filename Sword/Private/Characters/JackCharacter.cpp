@@ -48,6 +48,8 @@ void AJackCharacter::BeginPlay()
 			Subsystem->AddMappingContext(SwordContext, 0);
 		}
 	}
+
+	Tags.Add(FName("JackCharacter"));
 }
 
 void AJackCharacter::Move(const FInputActionValue& Value)

@@ -11,7 +11,6 @@
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
 #include "Animation/AnimMontage.h"
-#include "Components/BoxComponent.h"
 
 // Sets default values
 AJackCharacter::AJackCharacter()
@@ -144,6 +143,9 @@ void AJackCharacter::FinishEquipping()
 
 void AJackCharacter::Attack()
 {
+	Super::Attack();
+	PlayAttackMontage();
+	
 	// hiçbir şey yapmıyorsa ve silahı varsa attack animasyonu oynatılacak
 	if (CanAttack())
 	{
@@ -160,6 +162,8 @@ bool AJackCharacter::CanAttack()
 
 void AJackCharacter::PlayAttackMontage()
 {
+	Super::PlayAttackMontage();
+	
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && AttackMontage)
 	{
@@ -222,12 +226,4 @@ void AJackCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	// PlayerInputComponent->BindAction(FName("Attack"), IE_Pressed, this, &AJackCharacter::Attack);
 }
 
-void AJackCharacter::SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled)
-{
-	if (EquippedWeapon)
-	{
-		EquippedWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
-		EquippedWeapon->IgnoreActors.Empty();
-	}
-}
 

@@ -3,12 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "BaseCharacter.h"
 #include "InputActionValue.h"
 #include "CharacterTypes.h"
 #include "JackCharacter.generated.h"
 
-class AWeapon;
 class UInputMappingContext;
 class UInputAction;
 class USpringArmComponent;
@@ -17,7 +16,7 @@ class AItem;
 class UAnimMontage;
 
 UCLASS()
-class SWORD_API AJackCharacter : public ACharacter
+class SWORD_API AJackCharacter : public ABaseCharacter
 {
 	GENERATED_BODY()
 
@@ -30,9 +29,6 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-	UFUNCTION(BlueprintCallable)
-	void SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled);
 
 protected:
 	// Called when the game starts or when spawned
@@ -63,17 +59,15 @@ protected:
 	void Look(const FInputActionValue& Value);
 
 	void EKeyPressed();
-	void Attack();
+	virtual void Attack() override;
 
 	/*
 	 * Play montage functions
 	 */
-	void PlayAttackMontage();
+	virtual void PlayAttackMontage() override;
+	virtual void AttackEnd() override;
 
-	UFUNCTION(BlueprintCallable)
-	void AttackEnd();
-
-	bool CanAttack();
+	virtual bool CanAttack() override;
 
 	void PlayEquipMontage(const FName& SectionName);
 	bool CanDisarm();
@@ -103,15 +97,9 @@ private:
 	UPROPERTY(VisibleInstanceOnly)
 	AItem* OverlappingItem;
 
-	UPROPERTY(VisibleAnywhere, Category=Weapon)
-	AWeapon* EquippedWeapon;
-
 	/*
 	 * Animation Montages
 	 */
-
-	UPROPERTY(EditDefaultsOnly, Category=Montages)
-	UAnimMontage* AttackMontage;
 
 	UPROPERTY(EditDefaultsOnly, Category=Montages)
 	UAnimMontage* EquipMontage;

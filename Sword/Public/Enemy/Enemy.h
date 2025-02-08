@@ -3,18 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
-#include "Interfaces/HitInterface.h"
+#include "Characters/BaseCharacter.h"
 #include "Characters/CharacterTypes.h"
 #include "Enemy.generated.h"
 
-class UAttributeComponent;
-class UAnimMontage;
 class UHealthBarComponent;
 class UPawnSensingComponent;
 
 UCLASS()
-class SWORD_API AEnemy : public ACharacter, public IHitInterface
+class SWORD_API AEnemy : public ABaseCharacter
 {
 	GENERATED_BODY()
 
@@ -31,6 +28,8 @@ public:
 	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
 
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	virtual void Destroyed() override;
+	
 	void CheckCombatTarget();
 	void CheckPatrolTarget();
 
@@ -38,52 +37,33 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	void Die();
+	virtual void Die() override;
 	bool InTargetRange(AActor* Target, double Radius);
 	void MoveToTarget(AActor* Target);
 	AActor* ChoosePatrolTarget();
 
+	virtual void Attack() override;
+	virtual void PlayAttackMontage() override;
+
 	UFUNCTION()
 	void PawnSeen(APawn* SeenPawn);
 
-	/*
-	 * Play montage functions
-	 */
-	void PlayHitReactMontage(const FName& SectionName);
-	void DirectionalHitReact(const FVector& ImpactPoint);
+	UPROPERTY(BlueprintReadOnly)
+	EDeathPose DeathPose;
 
 	UPROPERTY(BlueprintReadOnly)
-	EDeathPose DeathPose = EDeathPose::EDP_Alive;
+	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
 
 private:
-
-	/*
-	 * Components
-	 */
-	
-	UPROPERTY(VisibleAnywhere)
-	UAttributeComponent* Attributes;
 
 	UPROPERTY(VisibleAnywhere)
 	UHealthBarComponent* HealthBarWidget;
 
 	UPROPERTY(VisibleAnywhere)
 	UPawnSensingComponent* PawnSensing;
-	
-	/*
-	 * Animation Montages
-	 */
-	UPROPERTY(EditDefaultsOnly, Category=Montages)
-	UAnimMontage* HitReactMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category=Montages)
-	UAnimMontage* DeathMontage;
-
-	UPROPERTY(EditAnywhere, Category=Sounds)
-	USoundBase* HitSound;
-
-	UPROPERTY(EditAnywhere, Category=VisualEffects)
-	UParticleSystem* HitParticles;
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<class AWeapon> WeaponClass;
 
 	UPROPERTY()
 	AActor* CombatTarget;
@@ -120,5 +100,23 @@ private:
 	UPROPERTY(EditAnywhere, Category="AI Navigation")
 	float WaitMax = 10.f;
 
-	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
+	/** AI behavior */
+	void HideHealthBar();
+	void ShowHealthBar();
+	void LoseInterest();
+	void StartPatrolling();
+	void ChaseTarget();
+	bool IsOutsideCombatRadius();
+	bool IsOutsideAttackRadius();
+	bool IsInsideAttackRadius();
+	bool IsChasing();
+	bool IsAttacking();
+
+	UPROPERTY(EditAnywhere, Category=Combat)
+	float PatrollingSpeed = 125.f;
+	
+	UPROPERTY(EditAnywhere, Category=Combat)
+	float ChasingSpeed = 300.f;
+
+	
 };

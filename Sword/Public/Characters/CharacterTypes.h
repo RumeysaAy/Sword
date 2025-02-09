@@ -36,6 +36,8 @@ enum class EEnemyState : uint8
 	EES_Patrolling UMETA(DisplayName = "Patrolling"),
 	EES_Chasing UMETA(DisplayName = "Chasing"), // 1: oyuncuyu takip ediyorsa
 	EES_Attacking UMETA(DisplayName = "Attacking"), // oyuncu saldırı menzilindeyse
-	EES_Engaged UMETA(DisplayName = "Engaged")
+	EES_Engaged UMETA(DisplayName = "Engaged"), // düşman saldırıyorsa
+
+	EES_NoState UMETA(DislayName = "NoState")
 };
 

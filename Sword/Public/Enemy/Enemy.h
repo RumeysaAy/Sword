@@ -9,6 +9,7 @@
 
 class UHealthBarComponent;
 class UPawnSensingComponent;
+class FTimerManager;
 
 UCLASS()
 class SWORD_API AEnemy : public ABaseCharacter
@@ -21,9 +22,6 @@ public:
 	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
 
@@ -44,6 +42,8 @@ protected:
 
 	virtual void Attack() override;
 	virtual void PlayAttackMontage() override;
+	virtual bool CanAttack() override;
+	virtual void HandleDamage(float DamageAmount) override;
 
 	UFUNCTION()
 	void PawnSeen(APawn* SeenPawn);
@@ -111,6 +111,21 @@ private:
 	bool IsInsideAttackRadius();
 	bool IsChasing();
 	bool IsAttacking();
+	bool IsDead();
+	bool IsEngaged();
+	void ClearPatrolTimer();
+
+	/** Combat */
+	void StartAttackTimer();
+	void ClearAttackTimer();
+	
+	FTimerHandle AttackTimer;
+
+	UPROPERTY(EditAnywhere, Category=Combat)
+	float AttackMin = 0.5f;
+
+	UPROPERTY(EditAnywhere, Category=Combat)
+	float AttackMax = 1.f;
 
 	UPROPERTY(EditAnywhere, Category=Combat)
 	float PatrollingSpeed = 125.f;

@@ -2,7 +2,6 @@
 
 
 #include "Items/Weapons/Weapon.h"
-#include "Characters/JackCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Components/SphereComponent.h"

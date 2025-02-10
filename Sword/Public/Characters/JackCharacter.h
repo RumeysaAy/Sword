@@ -23,7 +23,7 @@ class SWORD_API AJackCharacter : public ABaseCharacter
 public:
 	// Sets default values for this character's properties
 	AJackCharacter();
-	
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
@@ -52,40 +52,37 @@ protected:
 	UPROPERTY(EditAnywhere, Category=Input)
 	UInputAction* AttackAction;
 
-	/*
-	 * Callbacks for input
-	 */ 
+	/** Callbacks for input */ 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 
 	void EKeyPressed();
 	virtual void Attack() override;
 
-	/*
-	 * Play montage functions
-	 */
+	/** Combat - Play montage functions */
+	void EquipWeapon(AWeapon* Weapon);
+	
 	virtual void AttackEnd() override;
 
 	virtual bool CanAttack() override;
-
-	void PlayEquipMontage(const FName& SectionName);
+	
 	bool CanDisarm();
 	bool CanArm();
-
-	UFUNCTION(BlueprintCallable)
 	void Disarm();
+	void Arm();
+	void PlayEquipMontage(const FName& SectionName);
 
 	UFUNCTION(BlueprintCallable)
-	void Arm();
+	void AttachWeaponToBack();
+
+	UFUNCTION(BlueprintCallable)
+	void AttachWeaponToHand();
 
 	UFUNCTION(BlueprintCallable)
 	void FinishEquipping();
 
 private:
-	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
-
-	UPROPERTY(BlueprintReadWrite, meta=(AllowPrivateAccess = "true"))
-	EActionState ActionState = EActionState::EAS_Unoccupied;
+	/** Character Components */
 	
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArm;
@@ -102,6 +99,11 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category=Montages)
 	UAnimMontage* EquipMontage;
+
+	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
+
+	UPROPERTY(BlueprintReadWrite, meta=(AllowPrivateAccess = "true"))
+	EActionState ActionState = EActionState::EAS_Unoccupied;
 
 public:
 	FORCEINLINE void SetOverlappingItem(AItem* Item) { OverlappingItem = Item; }

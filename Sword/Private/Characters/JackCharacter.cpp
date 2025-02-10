@@ -35,6 +35,32 @@ AJackCharacter::AJackCharacter()
 	ViewCamera->SetupAttachment(SpringArm);
 }
 
+// Called every frame
+void AJackCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+}
+
+// Called to bind functionality to input
+void AJackCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &AJackCharacter::Move);
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AJackCharacter::Look);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(EKeyAction, ETriggerEvent::Triggered, this, &AJackCharacter::EKeyPressed);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AJackCharacter::Attack);
+	}
+
+	// PlayerInputComponent->BindAction(FName("Jump"), IE_Pressed, this, &ACharacter::Jump);
+	// PlayerInputComponent->BindAction(FName("Equip"), IE_Pressed, this, &AJackCharacter::EKeyPressed);
+	// PlayerInputComponent->BindAction(FName("Attack"), IE_Pressed, this, &AJackCharacter::Attack);
+}
+
 // Called when the game starts or when spawned
 void AJackCharacter::BeginPlay()
 {
@@ -81,11 +107,7 @@ void AJackCharacter::EKeyPressed()
 	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
 	if(OverlappingWeapon)
 	{
-		// silahı topladı - silah elinde
-		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
-		CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
-		OverlappingItem = nullptr;
-		EquippedWeapon = OverlappingWeapon;
+		EquipWeapon(OverlappingWeapon);
 	}
 	else
 	{
@@ -93,18 +115,47 @@ void AJackCharacter::EKeyPressed()
 		if (CanDisarm())
 		{
 			// silahı sırtına koyabilir
-			PlayEquipMontage(FName("Unequip"));
-			CharacterState = ECharacterState::ECS_Unequipped;
-			ActionState = EActionState::EAS_EquippingWeapon;
+			Disarm();
 		}
 		else if (CanArm())
 		{
 			// silahı sırtından alacak
-			PlayEquipMontage(FName("Equip"));
-			CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
-			ActionState = EActionState::EAS_EquippingWeapon;
+			Arm();
 		}
 	}
+}
+
+void AJackCharacter::Attack()
+{
+	Super::Attack();
+	PlayAttackMontage();
+	
+	// hiçbir şey yapmıyorsa ve silahı varsa attack animasyonu oynatılacak
+	if (CanAttack())
+	{
+		PlayAttackMontage();
+		ActionState = EActionState::EAS_Attacking;
+	}
+}
+
+void AJackCharacter::EquipWeapon(AWeapon* Weapon)
+{
+	// silahı topladı - silah elinde
+	Weapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
+	CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
+	OverlappingItem = nullptr;
+	EquippedWeapon = Weapon;
+}
+
+void AJackCharacter::AttackEnd()
+{
+	ActionState = EActionState::EAS_Unoccupied;
+}
+
+bool AJackCharacter::CanAttack()
+{
+	return ActionState == EActionState::EAS_Unoccupied &&
+	CharacterState != ECharacterState::ECS_Unequipped;
 }
 
 bool AJackCharacter::CanDisarm()
@@ -122,42 +173,18 @@ bool AJackCharacter::CanArm()
 
 void AJackCharacter::Disarm()
 {
-	if (EquippedWeapon)
-	{
-		EquippedWeapon->AttachMeshToSocket(GetMesh(), FName("SpineSocket"));
-	}
+	// silahı sırtına koyabilir
+	PlayEquipMontage(FName("Unequip"));
+	CharacterState = ECharacterState::ECS_Unequipped;
+	ActionState = EActionState::EAS_EquippingWeapon;
 }
 
 void AJackCharacter::Arm()
 {
-	if (EquippedWeapon)
-	{
-		EquippedWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocket"));
-	}
-}
-
-void AJackCharacter::FinishEquipping()
-{
-	ActionState = EActionState::EAS_Unoccupied;
-}
-
-void AJackCharacter::Attack()
-{
-	Super::Attack();
-	PlayAttackMontage();
-	
-	// hiçbir şey yapmıyorsa ve silahı varsa attack animasyonu oynatılacak
-	if (CanAttack())
-	{
-		PlayAttackMontage();
-		ActionState = EActionState::EAS_Attacking;
-	}
-}
-
-bool AJackCharacter::CanAttack()
-{
-	return ActionState == EActionState::EAS_Unoccupied &&
-	CharacterState != ECharacterState::ECS_Unequipped;
+	// silahı sırtından alacak
+	PlayEquipMontage(FName("Equip"));
+	CharacterState = ECharacterState::ESC_EquippedOneHandedWeapon;
+	ActionState = EActionState::EAS_EquippingWeapon;
 }
 
 void AJackCharacter::PlayEquipMontage(const FName& SectionName)
@@ -170,35 +197,35 @@ void AJackCharacter::PlayEquipMontage(const FName& SectionName)
 	}
 }
 
-void AJackCharacter::AttackEnd()
+void AJackCharacter::AttachWeaponToBack()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->AttachMeshToSocket(GetMesh(), FName("SpineSocket"));
+	}
+}
+
+void AJackCharacter::AttachWeaponToHand()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocket"));
+	}
+}
+
+void AJackCharacter::FinishEquipping()
 {
 	ActionState = EActionState::EAS_Unoccupied;
 }
 
-// Called every frame
-void AJackCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
 
-}
 
-// Called to bind functionality to input
-void AJackCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
-	{
-		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &AJackCharacter::Move);
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AJackCharacter::Look);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(EKeyAction, ETriggerEvent::Triggered, this, &AJackCharacter::EKeyPressed);
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AJackCharacter::Attack);
-	}
 
-	// PlayerInputComponent->BindAction(FName("Jump"), IE_Pressed, this, &ACharacter::Jump);
-	// PlayerInputComponent->BindAction(FName("Equip"), IE_Pressed, this, &AJackCharacter::EKeyPressed);
-	// PlayerInputComponent->BindAction(FName("Attack"), IE_Pressed, this, &AJackCharacter::Attack);
-}
+
+
+
+
+
 
 

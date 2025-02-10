@@ -5,20 +5,18 @@
 
 #include "AIController.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Perception/PawnSensingComponent.h"
 #include "Components/AttributeComponent.h"
 #include "HUD/HealthBarComponent.h"
+
 #include "Navigation/PathFollowingComponent.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimInstance.h"
 #include "Characters/JackCharacter.h"
+
 #include "Items/Weapons/Weapon.h"
 #include "TimerManager.h"
-
-#include "Sword/DebugMacro.h"
 
 
 // Sets default values
@@ -31,8 +29,6 @@ AEnemy::AEnemy()
 	GetMesh()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	GetMesh()->SetGenerateOverlapEvents(true);
-	
-	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera,ECR_Ignore);
 	
 	HealthBarWidget = CreateDefaultSubobject<UHealthBarComponent>(TEXT("HealthBar"));
 	HealthBarWidget->SetupAttachment(GetRootComponent());
@@ -47,28 +43,65 @@ AEnemy::AEnemy()
 	PawnSensing->SetPeripheralVisionAngle(45.f);
 }
 
+// Called every frame
+void AEnemy::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (IsDead()) return;
+
+	if (EnemyState > EEnemyState::EES_Patrolling)
+	{
+		CheckCombatTarget(); // oyuncu
+	}
+	else
+	{
+		CheckPatrolTarget(); // devriye noktaları
+	}
+}
+
+float AEnemy::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	HandleDamage(DamageAmount);
+	CombatTarget = EventInstigator->GetPawn();
+	ChaseTarget();
+	return DamageAmount;
+}
+
+void AEnemy::Destroyed()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Destroy();
+	}
+}
+
+// weapon çarptığında çağrılır
+void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
+{
+	ShowHealthBar();
+	
+	if (IsAlive())
+	{
+		DirectionalHitReact(ImpactPoint);
+	}
+	else Die();
+
+	// düşmanın vurulduğu noktada
+	PlayHitSound(ImpactPoint);
+	SpawnHitParticles(ImpactPoint);
+}
+
 // Called when the game starts or when spawned
 void AEnemy::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	if(HealthBarWidget) HealthBarWidget->SetVisibility(false);
-
-	EnemyController = Cast<AAIController>(GetController());
-	MoveToTarget(PatrolTarget);
-
 	if(PawnSensing)
 	{
 		PawnSensing->OnSeePawn.AddDynamic(this, &AEnemy::PawnSeen);
 	}
-
-	UWorld* World = GetWorld();
-	if (World && WeaponClass)
-	{
-		AWeapon* DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
-		DefaultWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
-		EquippedWeapon = DefaultWeapon;
-	}
+	InitializedEnemy();
 }
 
 void AEnemy::Die()
@@ -82,66 +115,6 @@ void AEnemy::Die()
 	SetLifeSpan(DeathLifeSpan);
 
 	GetCharacterMovement()->bOrientRotationToMovement = false;
-}
-
-bool AEnemy::InTargetRange(AActor* Target, double Radius)
-{
-	if (Target == nullptr) return false;
-	const double DistanceToTarget = (Target->GetActorLocation() - GetActorLocation()).Size();
-	DRAW_SPHERE_SingleFrame(GetActorLocation());
-	DRAW_SPHERE_SingleFrame(Target->GetActorLocation());
-	return Radius >= DistanceToTarget;
-}
-
-void AEnemy::MoveToTarget(AActor* Target)
-{
-	if (EnemyController == nullptr || Target == nullptr) return;
-	
-	FAIMoveRequest MoveRequest;
-	MoveRequest.SetGoalActor(Target);
-	MoveRequest.SetAcceptanceRadius(60.f);
-		
-	EnemyController->MoveTo(MoveRequest);
-}
-
-AActor* AEnemy::ChoosePatrolTarget()
-{
-	TArray<AActor*> ValidTargets;
-	for (AActor* Target : PatrolTargets)
-	{
-		if (Target != PatrolTarget)
-		{
-			ValidTargets.AddUnique(Target);
-		}
-	}
-			
-	// düşman rastgele bir diğer hedef noktaya gider
-	const int32 NumPatrolTargets = ValidTargets.Num();
-	if (NumPatrolTargets > 0)
-	{
-		const int32 TargetSelection = FMath::RandRange(0, NumPatrolTargets-1);
-		return ValidTargets[TargetSelection];
-	}
-	
-	return nullptr;
-}
-
-void AEnemy::PawnSeen(APawn* SeenPawn)
-{
-	// yakalanan piyon oyuncu mu? Cast<AJackCharacter>(SeenPawn)
-	const bool bShouldChaseTarget =
-		EnemyState != EEnemyState::EES_Dead &&
-			EnemyState != EEnemyState::EES_Chasing &&
-				EnemyState < EEnemyState::EES_Attacking &&
-					SeenPawn->ActorHasTag(FName("JackCharacter"));
-
-	if (bShouldChaseTarget)
-	{
-		// düşman oyuncuyu gördüğünde takip edecek, devriye gezmeyecek
-		CombatTarget = SeenPawn;
-		ClearPatrolTimer();
-		ChaseTarget();
-	}
 }
 
 void AEnemy::Attack()
@@ -161,11 +134,17 @@ bool AEnemy::CanAttack()
 	return bCanAttack;
 }
 
+void AEnemy::AttackEnd()
+{
+	EnemyState = EEnemyState::EES_NoState;
+	CheckCombatTarget();
+}
+
 void AEnemy::HandleDamage(float DamageAmount)
 {
 	Super::HandleDamage(DamageAmount);
 
-	if (HealthBarWidget)
+	if (Attributes && HealthBarWidget)
 	{
 		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
 	}
@@ -183,11 +162,61 @@ int32 AEnemy::PlayDeathMontage()
 	return Selection;
 }
 
-void AEnemy::AttackEnd()
+void AEnemy::InitializedEnemy()
 {
-	EnemyState = EEnemyState::EES_NoState;
-	CheckCombatTarget();
+	EnemyController = Cast<AAIController>(GetController());
+	MoveToTarget(PatrolTarget);
+	HideHealthBar();
+	SpawnDefaultWeapon();
 }
+
+void AEnemy::CheckPatrolTarget()
+{
+	// PatrolTarget, PatrolRadius'un içerisindeyse
+	if (InTargetRange(PatrolTarget, PatrolRadius))
+	{
+		PatrolTarget = ChoosePatrolTarget();
+
+		const float WaitTime = FMath::RandRange(PatrolWaitMin, PatrolWaitMax);
+		
+		// WaitTime saniye sonra diğer bir hedefe gidecek
+		GetWorldTimerManager().SetTimer(PatrolTimer, this, &AEnemy::PatrolTimerFinished, WaitTime);
+	}
+}
+
+void AEnemy::CheckCombatTarget()
+{
+	// oyuncu düşmandan uzaklaştığında
+	if (IsOutsideCombatRadius())
+	{
+		ClearAttackTimer();
+		
+		// Outside combat radius, lose interest
+		LoseInterest();
+
+		// düşman oyuncuya saldırmıyorsa
+		if (!IsEngaged())
+		{
+			// oyuncu, CombatRadius'un içerisinde değilse düşman oyuncuyu takip etmeyi bırakır
+			StartPatrolling();
+		}
+	}
+	else if (IsOutsideAttackRadius() && !IsChasing())
+	{
+		ClearAttackTimer();
+		// oyuncu AttackRadius'dan çıkarsa düşman oyuncuyu takip etsin
+		// Outside attack range, chase character
+		if (!IsEngaged()) ChaseTarget();
+	}
+	else if (CanAttack())
+	{
+		// oyuncu AttackRadius içerisindeyse düşman saldırır
+		// Inside attack range, attack character
+		StartAttackTimer();
+	}
+}
+
+
 
 void AEnemy::PatrolTimerFinished()
 {
@@ -281,101 +310,72 @@ void AEnemy::ClearAttackTimer()
 	GetWorldTimerManager().ClearTimer(AttackTimer);
 }
 
-// weapon çarptığında çağrılır
-void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
+bool AEnemy::InTargetRange(AActor* Target, double Radius)
 {
-	// düşmanın vurulduğu noktada
-	// DRAW_SPHERE_COLOR(ImpactPoint, FColor::Turquoise);
+	if (Target == nullptr) return false;
+	const double DistanceToTarget = (Target->GetActorLocation() - GetActorLocation()).Size();
+	return Radius >= DistanceToTarget;
+}
 
-	ShowHealthBar();
+void AEnemy::MoveToTarget(AActor* Target)
+{
+	if (EnemyController == nullptr || Target == nullptr) return;
 	
-	if (IsAlive())
-	{
-		DirectionalHitReact(ImpactPoint);
-	}
-	else Die();
-
-	PlayHitSound(ImpactPoint);
-	SpawnHitParticles(ImpactPoint);
-}
-
-float AEnemy::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
-	AActor* DamageCauser)
-{
-	HandleDamage(DamageAmount);
-	CombatTarget = EventInstigator->GetPawn();
-	ChaseTarget();
-	return DamageAmount;
-}
-
-void AEnemy::Destroyed()
-{
-	if (EquippedWeapon)
-	{
-		EquippedWeapon->Destroy();
-	}
-}
-
-void AEnemy::CheckCombatTarget()
-{
-	// oyuncu düşmandan uzaklaştığında
-	if (IsOutsideCombatRadius())
-	{
-		ClearAttackTimer();
+	FAIMoveRequest MoveRequest;
+	MoveRequest.SetGoalActor(Target);
+	MoveRequest.SetAcceptanceRadius(60.f);
 		
-		// Outside combat radius, lose interest
-		LoseInterest();
+	EnemyController->MoveTo(MoveRequest);
+}
 
-		// düşman oyuncuya saldırmıyorsa
-		if (!IsEngaged())
+AActor* AEnemy::ChoosePatrolTarget()
+{
+	TArray<AActor*> ValidTargets;
+	for (AActor* Target : PatrolTargets)
+	{
+		if (Target != PatrolTarget)
 		{
-			// oyuncu, CombatRadius'un içerisinde değilse düşman oyuncuyu takip etmeyi bırakır
-			StartPatrolling();
+			ValidTargets.AddUnique(Target);
 		}
 	}
-	else if (IsOutsideAttackRadius() && !IsChasing())
+			
+	// düşman rastgele bir diğer hedef noktaya gider
+	const int32 NumPatrolTargets = ValidTargets.Num();
+	if (NumPatrolTargets > 0)
 	{
-		ClearAttackTimer();
-		// oyuncu AttackRadius'dan çıkarsa düşman oyuncuyu takip etsin
-		// Outside attack range, chase character
-		if (!IsEngaged()) ChaseTarget();
+		const int32 TargetSelection = FMath::RandRange(0, NumPatrolTargets-1);
+		return ValidTargets[TargetSelection];
 	}
-	else if (CanAttack())
+	
+	return nullptr;
+}
+
+void AEnemy::SpawnDefaultWeapon()
+{
+	UWorld* World = GetWorld();
+	if (World && WeaponClass)
 	{
-		// oyuncu AttackRadius içerisindeyse düşman saldırır
-		// Inside attack range, attack character
-		StartAttackTimer();
+		AWeapon* DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
+		DefaultWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
+		EquippedWeapon = DefaultWeapon;
 	}
 }
 
-void AEnemy::CheckPatrolTarget()
+void AEnemy::PawnSeen(APawn* SeenPawn)
 {
-	// PatrolTarget, PatrolRadius'un içerisindeyse
-	if (InTargetRange(PatrolTarget, PatrolRadius))
+	// yakalanan piyon oyuncu mu? Cast<AJackCharacter>(SeenPawn)
+	const bool bShouldChaseTarget =
+		EnemyState != EEnemyState::EES_Dead &&
+			EnemyState != EEnemyState::EES_Chasing &&
+				EnemyState < EEnemyState::EES_Attacking &&
+					SeenPawn->ActorHasTag(FName("JackCharacter"));
+
+	if (bShouldChaseTarget)
 	{
-		PatrolTarget = ChoosePatrolTarget();
-
-		const float WaitTime = FMath::RandRange(WaitMin, WaitMax);
-		
-		// WaitTime saniye sonra diğer bir hedefe gidecek
-		GetWorldTimerManager().SetTimer(PatrolTimer, this, &AEnemy::PatrolTimerFinished, WaitTime);
-	}
-}
-
-// Called every frame
-void AEnemy::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	if (IsDead()) return;
-
-	if (EnemyState > EEnemyState::EES_Patrolling)
-	{
-		CheckCombatTarget(); // oyuncu
-	}
-	else
-	{
-		CheckPatrolTarget(); // devriye noktaları
+		// düşman oyuncuyu gördüğünde takip edecek, devriye gezmeyecek
+		CombatTarget = SeenPawn;
+		ClearPatrolTimer();
+		ChaseTarget();
 	}
 }
 
